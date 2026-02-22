@@ -6,21 +6,18 @@ import {
   API_ENDPOINTS,
 } from '../lib/api-utils';
 import { getWeatherCondition } from '../lib/weather-codes';
-
-const forecastSchema = z.object({
-  date: z.string(),
-  maxTemp: z.number(),
-  minTemp: z.number(),
-  precipitationChance: z.number(),
-  condition: z.string(),
-  location: z.string(),
-});
+import { WEATHER_ACTIVITY_PLANNING_PROMPT } from './weather-prompts';
+import {
+  weatherInputSchema,
+  forecastSchema,
+  weatherOutputSchema,
+} from './weather-types';
 
 const fetchWeather = createStep({
   id: 'fetch-weather',
-  description: 'Fetches weather forecast for a given city',
+  description: 'Busca previsão de tempo para uma cidade',
   inputSchema: z.object({
-    city: z.string().describe('The city to get the weather for'),
+    city: z.string().describe('Cidade para obter previsão de tempo'),
   }),
   outputSchema: forecastSchema,
   execute: async ({ inputData }) => {
@@ -38,7 +35,7 @@ const fetchWeather = createStep({
       }>(geocodingUrl);
 
       if (!geocodingData.results?.[0]) {
-        throw new Error(`Location '${inputData.city}' not found`);
+        throw new Error(`Localização '${inputData.city}' não encontrada`);
       }
 
       const { latitude, longitude, name } = geocodingData.results[0];
@@ -78,11 +75,9 @@ const fetchWeather = createStep({
 
 const planActivities = createStep({
   id: 'plan-activities',
-  description: 'Suggests activities based on weather conditions',
+  description: 'Sugere atividades baseadas na previsão de tempo',
   inputSchema: forecastSchema,
-  outputSchema: z.object({
-    activities: z.string(),
-  }),
+  outputSchema: weatherOutputSchema,
   execute: async ({ inputData, mastra }) => {
     const forecast = inputData;
 
@@ -95,47 +90,10 @@ const planActivities = createStep({
       throw new Error('Weather agent not found');
     }
 
-    const prompt = `Based on the following weather forecast for ${forecast.location}, suggest appropriate activities:
-      ${JSON.stringify(forecast, null, 2)}
-      For each day in the forecast, structure your response exactly as follows:
-
-      📅 [Day, Month Date, Year]
-      ═══════════════════════════
-
-      🌡️ WEATHER SUMMARY
-      • Conditions: [brief description]
-      • Temperature: [X°C/Y°F to A°C/B°F]
-      • Precipitation: [X% chance]
-
-      🌅 MORNING ACTIVITIES
-      Outdoor:
-      • [Activity Name] - [Brief description including specific location/route]
-        Best timing: [specific time range]
-        Note: [relevant weather consideration]
-
-      🌞 AFTERNOON ACTIVITIES
-      Outdoor:
-      • [Activity Name] - [Brief description including specific location/route]
-        Best timing: [specific time range]
-        Note: [relevant weather consideration]
-
-      🏠 INDOOR ALTERNATIVES
-      • [Activity Name] - [Brief description including specific venue]
-        Ideal for: [weather condition that would trigger this alternative]
-
-      ⚠️ SPECIAL CONSIDERATIONS
-      • [Any relevant weather warnings, UV index, wind conditions, etc.]
-
-      Guidelines:
-      - Suggest 2-3 time-specific outdoor activities per day
-      - Include 1-2 indoor backup options
-      - For precipitation >50%, lead with indoor activities
-      - All activities must be specific to the location
-      - Include specific venues, trails, or locations
-      - Consider activity intensity based on temperature
-      - Keep descriptions concise but informative
-
-      Maintain this exact formatting for consistency, using the emoji and section headers as shown.`;
+    const prompt = WEATHER_ACTIVITY_PLANNING_PROMPT(
+      forecast.location,
+      JSON.stringify(forecast, null, 2)
+    );
 
     const response = await agent.stream([
       {
@@ -159,12 +117,8 @@ const planActivities = createStep({
 
 const weatherWorkflow = createWorkflow({
   id: 'weather-workflow',
-  inputSchema: z.object({
-    city: z.string().describe('The city to get the weather for'),
-  }),
-  outputSchema: z.object({
-    activities: z.string(),
-  }),
+  inputSchema: weatherInputSchema,
+  outputSchema: weatherOutputSchema,
 })
   .then(fetchWeather)
   .then(planActivities);

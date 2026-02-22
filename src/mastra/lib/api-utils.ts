@@ -28,15 +28,15 @@ export const API_CONFIG = {
  */
 export async function fetchWithRetry<T>(
   url: string,
-  options: RequestInit = {},
-  retries = API_CONFIG.MAX_RETRIES
+  options?: RequestInit,
+  retries: number = API_CONFIG.MAX_RETRIES
 ): Promise<T> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT_MS);
 
     const response = await fetch(url, {
-      ...options,
+      ...(options || {}),
       signal: controller.signal,
     });
 
