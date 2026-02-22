@@ -1,5 +1,10 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
+import {
+  fetchWithRetry,
+  formatApiError,
+  API_ENDPOINTS,
+} from '../lib/api-utils';
 
 const showSearchSchema = z.object({
   showName: z.string().describe('Nome da série a buscar'),
@@ -22,12 +27,23 @@ const fetchShow = createStep({
   outputSchema: z.object({ id: z.number(), name: z.string() }),
   execute: async ({ inputData }) => {
     if (!inputData) throw new Error('Input data not found');
-    const q = encodeURIComponent(inputData.showName);
-    const res = await fetch(`https://api.tvmaze.com/search/shows?q=${q}`);
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) throw new Error('Show not found');
-    const show = data[0].show;
-    return { id: show.id, name: show.name };
+
+    try {
+      const q = encodeURIComponent(inputData.showName);
+      const url = `${API_ENDPOINTS.TVMAZE.BASE}${API_ENDPOINTS.TVMAZE.SEARCH_SHOWS}?q=${q}`;
+      const data = await fetchWithRetry<
+        Array<{ show: { id: number; name: string } }>
+      >(url);
+
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error(`Série "${inputData.showName}" não encontrada`);
+      }
+
+      const show = data[0].show;
+      return { id: show.id, name: show.name };
+    } catch (error) {
+      throw new Error(formatApiError(error));
+    }
   },
 });
 
@@ -38,17 +54,33 @@ const fetchShowDetails = createStep({
   outputSchema: showDetailSchema,
   execute: async ({ inputData }) => {
     if (!inputData) throw new Error('Input data not found');
-    const res = await fetch(`https://api.tvmaze.com/shows/${inputData.id}`);
-    const show = await res.json();
-    return {
-      id: show.id,
-      name: show.name,
-      summary: show.summary ?? null,
-      genres: show.genres ?? [],
-      status: show.status ?? 'unknown',
-      premiered: show.premiered ?? null,
-      officialSite: show.officialSite ?? null,
-    };
+
+    try {
+      const url = `${API_ENDPOINTS.TVMAZE.BASE}${API_ENDPOINTS.TVMAZE.SHOW_DETAILS(
+        inputData.id
+      )}`;
+      const show = await fetchWithRetry<{
+        id: number;
+        name: string;
+        summary: string | null;
+        genres: string[];
+        status: string;
+        premiered: string | null;
+        officialSite: string | null;
+      }>(url);
+
+      return {
+        id: show.id,
+        name: show.name,
+        summary: show.summary ?? null,
+        genres: show.genres ?? [],
+        status: show.status ?? 'unknown',
+        premiered: show.premiered ?? null,
+        officialSite: show.officialSite ?? null,
+      };
+    } catch (error) {
+      throw new Error(formatApiError(error));
+    }
   },
 });
 
@@ -62,4 +94,4 @@ const cinemaWorkflow = createWorkflow({
 
 cinemaWorkflow.commit();
 
-export { cinemaWorkflow };
+export { cinemaWorkflow, showDetailSchema, showSearchSchema };

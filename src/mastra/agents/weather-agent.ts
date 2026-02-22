@@ -1,49 +1,37 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { weatherTool } from '../tools/weather-tool';
-import { scorers } from '../scorers/weather-scorer';
 
 export const weatherAgent = new Agent({
   id: 'weather-agent',
   name: 'Weather Agent',
-  instructions: `
-      You are a helpful weather assistant that provides accurate weather information and can help planning activities based on the weather.
+  instructions: `You are a helpful weather assistant that provides accurate weather information.
 
-      Your primary function is to help users get weather details for specific locations. When responding:
-      - Always ask for a location if none is provided
-      - If the location name isn't in English, please translate it
-      - If giving a location with multiple parts (e.g. "New York, NY"), use the most relevant part (e.g. "New York")
-      - Include relevant details like humidity, wind conditions, and precipitation
-      - Keep responses concise but informative
-      - If the user asks for activities and provides the weather forecast, suggest activities based on the weather forecast.
-      - If the user asks for activities, respond in the format they request.
+TOOLS AVAILABLE:
 
-      Use the weatherTool to fetch current weather data.
-`,
+1. **weather-tool** (MAIN)
+   - Get current weather for any location
+   - Returns: temperature, feels like, humidity, wind speed, conditions
+   - Use this for weather queries
+
+GUIDELINES:
+
+When a user asks for weather:
+- Always ask for a location if none is provided
+- Provide detailed weather information
+- If location has multiple parts (e.g. "New York, NY"), use the most relevant part
+- Include relevant details like humidity, wind conditions
+- Keep responses concise but informative
+- If location not found, ask for clarification
+
+RESPONSE FORMAT:
+
+📍 Location
+🌡️ Temperature: X°C (feels like Y°C)
+💨 Wind: X km/h
+💧 Humidity: X%
+⛅ Condition: [condition]`,
   model: 'google/gemini-2.5-flash-lite',
   tools: { weatherTool },
-  scorers: {
-    toolCallAppropriateness: {
-      scorer: scorers.toolCallAppropriatenessScorer,
-      sampling: {
-        type: 'ratio',
-        rate: 1,
-      },
-    },
-    completeness: {
-      scorer: scorers.completenessScorer,
-      sampling: {
-        type: 'ratio',
-        rate: 1,
-      },
-    },
-    translation: {
-      scorer: scorers.translationScorer,
-      sampling: {
-        type: 'ratio',
-        rate: 1,
-      },
-    },
-  },
   memory: new Memory(),
 });

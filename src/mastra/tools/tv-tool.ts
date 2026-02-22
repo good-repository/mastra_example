@@ -1,32 +1,39 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import {
+  fetchWithRetry,
+  formatApiError,
+  API_ENDPOINTS,
+} from '../lib/api-utils';
 
 export const tvTool = createTool({
   id: 'tv-tool',
-  description: `Ferramenta para buscar informações sobre séries de TV.
+  description: `Advanced tool for TV show queries via TVMaze API.
 
-Base URL: https://api.tvmaze.com
+Base URL: ${API_ENDPOINTS.TVMAZE.BASE}
 
-Endpoints disponíveis:
-1) GET /search/shows?q={nome} - Busca séries pelo nome
-2) GET /shows/{id} - Retorna detalhes completos de uma série pelo ID
+Common endpoints:
+1) /search/shows?q={name} - Search shows by name
+2) /shows/{id} - Get show details by ID
+3) /shows/{id}/episodes - Get show episodes
 
-Use o parâmetro 'endpoint' para especificar qual endpoint chamar.`,
+Use the 'endpoint' parameter to specify which endpoint to call.`,
   inputSchema: z.object({
     endpoint: z
       .string()
-      .describe('O endpoint da API TVMaze. Ex: /search/shows?q=breaking%20bad ou /shows/1'),
+      .describe(
+        'TVMaze API endpoint. Example: /search/shows?q=breaking%20bad or /shows/1'
+      ),
   }),
   outputSchema: z.any(),
   execute: async (inputData) => {
-    const endpoint = inputData.endpoint;
     try {
-      const response = await fetch(`https://api.tvmaze.com${endpoint}`);
-      const data = await response.json();
+      const url = `${API_ENDPOINTS.TVMAZE.BASE}${inputData.endpoint}`;
+      const data = await fetchWithRetry<unknown>(url);
       return data;
     } catch (error) {
       return {
-        error: `Erro ao buscar dados da API: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        error: formatApiError(error),
       };
     }
   },
