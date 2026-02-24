@@ -63,12 +63,13 @@ export async function fetchWithRetry<T>(
     const data = await response.json();
     return data as T;
   } catch (error) {
-    // Don't retry on validation errors
-    if (error instanceof ApiError) {
-      throw error;
+    // Don't retry on deterministic errors
+    if (error instanceof ApiError) throw error;
+    if (error instanceof SyntaxError) {
+      throw new ApiError('Invalid JSON response from API', 0, url);
     }
 
-    // Retry on other errors
+    // Retry on transient errors (network timeouts, etc.)
     if (retries > 0) {
       const delay = API_CONFIG.RETRY_DELAY_MS * (API_CONFIG.MAX_RETRIES - retries + 1);
       await new Promise((resolve) => setTimeout(resolve, delay));

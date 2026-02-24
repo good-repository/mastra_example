@@ -1,305 +1,219 @@
-# Mastra Example - Multi-Agent AI Application
+# Mastra Example — Multi-Agent AI Application
 
-A comprehensive example application demonstrating Mastra's capabilities with multiple AI agents, workflows, and tools for managing different domains (Cinema/TV Shows and Weather).
+Example application demonstrating a multi-agent architecture with Mastra: an orchestrator agent that routes queries to domain specialists.
 
-## 🎯 Project Overview
-
-This project showcases:
-- **Multiple AI Agents** - Specialized agents for different tasks (Cinema, Weather)
-- **Workflows** - Multi-step orchestration with automatic retry logic
-- **Type-Safe Tools** - Tools with full TypeScript support and validation
-- **Error Handling** - Robust error handling with retry mechanisms
-- **API Integration** - Integration with TVMaze and Open-Meteo APIs
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js >= 22.13.0
-- npm or yarn
-
-### Installation
+## Quick Start
 
 ```bash
-npm install
+cp .env.example .env   # fill in your API keys
+yarn install
+yarn seed:cinema       # populate cinema knowledge base (run once)
+yarn dev               # Mastra Studio at http://localhost:4111
 ```
-
-### Development
-
-Start the Mastra Studio at http://localhost:4111:
 
 ```bash
-npm run dev
+yarn build  # Production build
+yarn start  # Start production server
 ```
 
-### Production Build
+**Node.js >= 22.13.0 required.**
 
-```bash
-npm run build
+## Architecture
+
+```
+User
+ └─ orchestratorAgent           # Routes queries to the right specialist
+     ├─ callWeatherAgent ──────> weatherAgent
+     │                              ├─ forecast-tool → weatherWorkflow
+     │                              │    └─ [fetchWeather → planActivities]
+     │                              │         └─ activityPlannerAgent (internal)
+     │                              └─ weather-tool
+     └─ callCinemaAgent ───────> cinemaAgent
+                                    ├─ show-details-tool
+                                    ├─ tvmaze-tool
+                                    └─ cinema-knowledge-tool → LibSQL vector store
 ```
 
-### Running Production Server
+- **`orchestratorAgent`** — understands user intent and delegates to specialists via agent-as-tool pattern
+- **`weatherAgent`** — meteorology specialist; can fetch current weather or trigger the full workflow
+- **`cinemaAgent`** — TV shows specialist with RAG-powered knowledge base (TVMaze API reference, response guidelines, edge case handling)
+- **`activityPlannerAgent`** — internal, tool-free agent used only by `weatherWorkflow` to generate activity suggestions without circular dependency risk
 
-```bash
-npm start
-```
-
-## 📂 Project Structure
-
-The project follows a **feature-based modular architecture** for clarity and scalability:
+## Project Structure
 
 ```
 src/mastra/
-├── cinema/                      # Cinema domain (TV shows)
-│   ├── agent.ts                 # Cinema specialist agent
-│   ├── workflow.ts              # Show search & details workflow
-│   ├── workflow-executor.ts      # Type-safe workflow wrapper
+├── orchestrator/
+│   ├── agent.ts                    # Orchestrator agent
+│   ├── index.ts
 │   └── tools/
-│       ├── workflow-tool.ts      # Exposes workflow to agents
-│       └── tv-tool.ts            # Direct TVMaze API access
+│       ├── call-weather-agent.ts   # Delegates to weatherAgent
+│       └── call-cinema-agent.ts    # Delegates to cinemaAgent
 │
-├── weather/                     # Weather domain
-│   ├── agent.ts                 # Weather specialist agent
-│   ├── workflow.ts              # Forecast + activity planning
-│   ├── workflow-executor.ts      # Type-safe workflow wrapper
-│   ├── types.ts                 # Zod schemas & type exports
-│   ├── prompts.ts               # LLM activity planning prompt
+├── weather/
+│   ├── agent.ts                    # Weather specialist agent
+│   ├── activity-planner-agent.ts   # Internal agent (no tools)
+│   ├── workflow.ts                 # fetchWeather → planActivities
+│   ├── workflow-executor.ts        # Type-safe workflow wrapper
+│   ├── types.ts                    # Zod schemas & derived types
+│   ├── prompts.ts                  # Activity planning prompt template
+│   ├── knowledge.ts                # Inline thresholds & safety guidelines
+│   ├── index.ts
 │   └── tools/
-│       ├── workflow-tool.ts      # Exposes workflow to agents
-│       └── tool.ts               # Current weather for any location
+│       ├── weather-tool.ts         # Current weather (Open-Meteo)
+│       └── forecast-tool.ts        # Forecast + activity suggestions
 │
-├── shared/                      # Shared utilities
+├── cinema/
+│   ├── agent.ts                    # Cinema specialist agent
+│   ├── index.ts
+│   ├── knowledge/
+│   │   ├── faq.md                  # Knowledge base source (edit to expand)
+│   │   └── seed.ts                 # Chunks, embeds and upserts faq.md
+│   └── tools/
+│       ├── show-details-tool.ts    # Show search + details (TVMaze)
+│       ├── tvmaze-tool.ts          # Raw TVMaze API access
+│       └── knowledge-tool.ts       # RAG: semantic search over cinema knowledge base
+│
+├── shared/
+│   ├── config.ts                   # API endpoints, timeouts, model names
+│   ├── index.ts
+│   ├── types/
+│   │   └── agent-contracts.ts      # Zod schemas for inter-agent I/O
 │   └── lib/
-│       ├── api-utils.ts         # Retry logic, error handling, endpoints
-│       └── weather-codes.ts     # WMO weather code mappings (34 codes)
+│       ├── api-utils.ts            # fetchWithRetry, ApiError
+│       └── weather-codes.ts        # WMO weather code mappings
 │
-├── scorers/                     # Optional evaluators
-│   └── weather-scorer.ts        # (not currently used)
+├── scorers/
+│   └── weather-scorer.ts           # Evals: tool accuracy, completeness, translation
 │
-├── public/                      # Static assets (copied to build)
-│
-└── index.ts                     # Mastra initialization & exports
+└── index.ts                        # Mastra instance (agents, workflows, tools, vectors)
 ```
 
-### Architecture Pattern
+## Key Patterns
 
-Each feature (cinema, weather) follows this consistent structure:
+### Agent-as-Tool (Orchestrator)
 
-```
-feature/
-├── agent.ts              # Agent with instructions and tools
-├── workflow.ts           # Multi-step workflow definition
-├── workflow-executor.ts  # Type-safe wrapper (isolates complex Mastra API)
-├── types.ts             # (Weather only) Zod schemas + z.infer types
-├── prompts.ts           # (Weather only) Extracted LLM prompts
-└── tools/
-    ├── workflow-tool.ts  # Exposes workflow as tool
-    └── *.ts             # Additional tools (tv-tool, tool.ts)
-```
-
-This pattern makes it **easy to add new features** - just follow the same structure!
-
-### Why This Architecture?
-
-1. **Modular** - Each feature is self-contained and independent
-2. **Scalable** - Add new features (music, sports, news) without touching existing code
-3. **Clear** - Understand the whole feature by reading its directory
-4. **Maintainable** - Shared code is centralized, feature code is localized
-5. **Testable** - Each module can be tested independently
-6. **Consistent** - All features follow the same pattern
-
-## 🎬 Cinema Agent
-
-Specializes in TV show information from TVMaze.
-
-### Features
-- **Cinema Workflow Tool** - Automated search and detail fetching
-- **TV Tool** - Direct API access for advanced queries
-
-### Example Usage
+The orchestrator delegates via tools that call `agent.generate()`:
 
 ```typescript
-cinemaAgent.stream([
-  { role: 'user', content: 'Tell me about Breaking Bad' }
-])
-```
-
-## ☀️ Weather Agent
-
-Provides weather information and activity suggestions based on forecasts.
-
-### Features
-- **Weather Tool** - Current weather data from Open-Meteo
-- **Activity Planning** - Suggests activities based on weather conditions
-
-### Example Usage
-
-```typescript
-weatherAgent.stream([
-  { role: 'user', content: 'What\'s the weather like in New York?' }
-])
-```
-
-## 🏗️ Architecture Highlights
-
-### Type Safety
-
-All workflows export types using `z.infer` from Zod schemas:
-
-```typescript
-type ShowDetail = z.infer<typeof showDetailSchema>;
-type WeatherInput = z.infer<typeof weatherInputSchema>;
-```
-
-### Error Handling
-
-Centralized error handling with retry logic:
-
-```typescript
-await fetchWithRetry<T>(url, options, 3); // Auto-retries with backoff
-```
-
-### API Integration
-
-Centralized API endpoints:
-
-```typescript
-API_ENDPOINTS.TVMAZE.SEARCH_SHOWS
-API_ENDPOINTS.OPEN_METEO.WEATHER
-```
-
-## 🆕 Adding New Features
-
-To add a new feature (e.g., Music, Sports, News), follow this pattern:
-
-### 1. Create Feature Directory
-
-```
-src/mastra/{feature}/
-├── index.ts              # Central exports
-├── agent.ts              # Feature agent
-├── workflow.ts           # Multi-step workflow
-├── workflow-executor.ts  # Type-safe wrapper
-├── types.ts             # Zod schemas & exports (if needed)
-├── prompts.ts           # LLM prompts (if needed)
-└── tools/
-    ├── primary-tool.ts   # Main feature tool
-    └── workflow-tool.ts  # Exposes workflow as tool
-```
-
-### 2. Create `index.ts` Exports
-
-```typescript
-// music/index.ts
-export { musicAgent } from './agent';
-export { musicWorkflow } from './workflow';
-export { spotifyTool } from './tools/spotify-tool';
-export { musicWorkflowTool } from './tools/workflow-tool';
-export type { MusicSearchInput, MusicResult } from './workflow-executor';
-```
-
-### 3. Update Main Exports
-
-```typescript
-// src/mastra/index.ts
-import { musicAgent, musicWorkflow, spotifyTool, musicWorkflowTool } from './music';
-
-export const mastra = new Mastra({
-  workflows: { ..., musicWorkflow },
-  agents: { ..., musicAgent },
-  tools: { ..., spotifyTool, musicWorkflowTool },
-  // ...
+// orchestrator/tools/call-weather-agent.ts
+export const callWeatherAgent = createTool({
+  inputSchema: weatherAgentQuerySchema,
+  execute: async ({ query }) => {
+    const result = await weatherAgent.generate(query);
+    return { response: result.text };
+  },
 });
 ```
 
-### Key Patterns
+### Agent Contracts
 
-✅ **Self-contained** - Everything a feature needs is in its folder  
-✅ **Clean imports** - Use `index.ts` for centralized exports  
-✅ **Type-safe** - Export types via workflow-executor  
-✅ **Prompt management** - Extract complex prompts to `prompts.ts`  
-✅ **Error handling** - Use shared `formatApiError()` for consistency  
-
-## 📊 API Integration
-
-### TVMaze
-- Search shows: `/search/shows?q={name}`
-- Show details: `/shows/{id}`
-- Retry logic: 3 attempts with exponential backoff
-- Timeout: 10 seconds
-
-### Open-Meteo (Weather)
-- Geocoding: Complete location lookup
-- Forecasting: Temperature, precipitation, conditions
-- No API key required
-- Free tier available
-
-## 🔧 Configuration
-
-### Retry Policy
-- **Max Retries**: 3
-- **Initial Delay**: 1000ms
-- **Backoff**: Exponential
-- **Timeout**: 10 seconds
-
-### Models
-- **Default Model**: google/gemini-2.5-flash-lite
-- Configurable per agent
-
-## 📝 Development Notes
-
-### Workflow Executors
-
-Each complex workflow has an executor wrapper for type safety:
+Inter-agent communication is typed via shared Zod schemas:
 
 ```typescript
-// cinema-workflow-executor.ts
-export async function executeCinemaWorkflow(
-  input: ShowSearchInput
-): Promise<ShowDetail>
-
-// weather-workflow-executor.ts
-export async function executeWeatherWorkflow(
-  input: WeatherInput
-): Promise<WeatherOutput>
+// shared/types/agent-contracts.ts
+export const weatherAgentQuerySchema = z.object({
+  query: z.string().max(500).describe('Natural language weather query including the location'),
+});
+export type WeatherAgentQuery = z.infer<typeof weatherAgentQuerySchema>;
 ```
 
-### Prompt Management
+### Avoiding Circular Dependencies
 
-Long prompts are extracted to separate files:
-- `weather-prompts.ts` - Activity planning prompts
+`weatherWorkflow` calls `activityPlannerAgent` (no tools) instead of `weatherAgent` to prevent:
 
-This improves maintainability and readability.
+```
+weatherAgent → forecast-tool → weatherWorkflow → weatherAgent  ← loop!
+```
 
-## 🚦 Testing
+### Workflow Executor
 
-Run `npm run dev` to access Mastra Studio where you can:
-- Test agents interactively
-- Inspect workflow execution
-- Monitor API calls and traces
-- View performance metrics
+The `(workflow.execute as any)()` cast is isolated to a single wrapper function, keeping type unsafety contained:
 
-## 📚 Resources
+```typescript
+// weather/workflow-executor.ts
+export async function executeWeatherWorkflow(input: WeatherInput): Promise<WeatherOutput> {
+  const result = await (weatherWorkflow.execute as any)({ inputData: input });
+  return result as WeatherOutput;
+}
+```
+
+### Inline Knowledge (Weather)
+
+Small, structured knowledge stays as TypeScript constants injected into prompts — no vector store needed:
+
+```typescript
+// weather/knowledge.ts
+export const THRESHOLDS = {
+  wind: { strong: 60 },       // km/h — avoid outdoor activities
+  precipitation: { high: 80 }, // % — lead with indoor alternatives
+  // ...
+} as const;
+```
+
+These are imported by `prompts.ts` and rendered into the activity planning prompt at call time. Editing a threshold only requires changing one constant.
+
+### RAG Knowledge Base (Cinema)
+
+Large or unstructured reference material lives in a vector store — the agent retrieves only relevant chunks on demand:
+
+```typescript
+// cinema/tools/knowledge-tool.ts
+export const cinemaKnowledgeTool = createVectorQueryTool({
+  vectorStoreName: 'cinemaKnowledge',
+  indexName: 'cinema_faq',
+  model: google.embedding('text-embedding-004'),
+});
+```
+
+To update the knowledge base, edit `cinema/knowledge/faq.md` and re-run:
+
+```bash
+yarn seed:cinema
+```
+
+**When to use each approach:**
+- **Inline constants** — small set of well-defined values (thresholds, rules, enums)
+- **RAG** — large reference docs, API specs, FAQs that would bloat the system prompt
+
+## Adding a New Domain
+
+1. **Create the feature directory** following the weather/cinema structure:
+
+```
+src/mastra/music/
+├── agent.ts
+├── index.ts
+└── tools/
+    └── spotify-tool.ts
+```
+
+2. **Define agent contracts** in `shared/types/agent-contracts.ts`:
+
+```typescript
+export const musicAgentQuerySchema = z.object({ query: z.string().max(500) });
+export type MusicAgentQuery = z.infer<typeof musicAgentQuerySchema>;
+```
+
+3. **Create a delegation tool** in `orchestrator/tools/call-music-agent.ts`
+
+4. **Register** agent and tool in `src/mastra/index.ts` and add `callMusicAgent` to the orchestrator
+
+## External APIs
+
+| API | Used for | Auth |
+|-----|----------|------|
+| [TVMaze](https://www.tvmaze.com/api) | TV show search & details | None |
+| [Open-Meteo](https://open-meteo.com) | Geocoding + weather forecast | None |
+| [Google Gemini](https://aistudio.google.com) | LLM + embeddings | `GOOGLE_GENERATIVE_AI_API_KEY` |
+
+## Configuration
+
+`shared/config.ts` — API endpoints, retry policy (3 attempts, exponential backoff, 10s timeout), and model names.
+
+`LOG_LEVEL` env var controls log verbosity (`debug` | `info` | `warn` | `error`, default: `info`).
+
+## Resources
 
 - [Mastra Documentation](https://mastra.ai/docs)
-- [TVMaze API](https://www.tvmaze.com/api)
-- [Open-Meteo API](https://open-meteo.com)
 - [Zod Documentation](https://zod.dev)
-
-## 📖 Best Practices Used
-
-✅ Type-safe with TypeScript/Zod  
-✅ Centralized configuration  
-✅ Robust error handling with retry logic  
-✅ Separated concerns (agents, tools, workflows)  
-✅ Reusable utilities and types  
-✅ Clear error messages for users  
-✅ Proper timeout handling  
-✅ Documented code with comments  
-
-## 🤝 Contributing
-
-This is an example project. Feel free to fork and extend with your own agents and tools.
-
-## 📄 License
-
-ISC

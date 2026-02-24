@@ -4,8 +4,7 @@
  */
 
 export { cinemaAgent } from './agent';
-export { cinemaWorkflow } from './workflow';
-export { cinemaDirectTool } from './tools/direct-tool';
-export { tvTool } from './tools/tv-tool';
-export { cinemaWorkflowTool as cinemaToolWorkflow } from './tools/workflow-tool';
-export type { ShowSearchInput, ShowDetail } from './workflow-executor';
+export { cinemaDirectTool } from './tools/show-details-tool';
+export { tvTool } from './tools/tvmaze-tool';
+export { cinemaKnowledgeTool } from './tools/knowledge-tool';
+export type { ShowSearchInput, ShowDetail } from './tools/show-details-tool';

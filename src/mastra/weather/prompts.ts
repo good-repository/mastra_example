@@ -3,10 +3,20 @@
  * Centralizes the complex prompt for weather-based activity suggestions
  */
 
+import { THRESHOLDS, SAFETY_GUIDELINES } from './knowledge';
+
 export const WEATHER_ACTIVITY_PLANNING_PROMPT = (location: string, forecastJson: string) => `
 Based on the following weather forecast for ${location}, suggest appropriate activities:
 
 ${forecastJson}
+
+## Safety thresholds
+- Wind above ${THRESHOLDS.wind.strong} km/h: avoid outdoor activities
+- Temperature above ${THRESHOLDS.temperature.hot}°C or below ${THRESHOLDS.temperature.cold}°C: limit exertion
+- Precipitation above ${THRESHOLDS.precipitation.high}%: lead with indoor alternatives
+
+## Safety guidelines
+${SAFETY_GUIDELINES.map((g) => `- ${g}`).join('\n')}
 
 For each day in the forecast, structure your response exactly as follows:
 
@@ -40,7 +50,6 @@ Outdoor:
 Guidelines:
 - Suggest 2-3 time-specific outdoor activities per day
 - Include 1-2 indoor backup options
-- For precipitation >50%, lead with indoor activities
 - All activities must be specific to the location
 - Include specific venues, trails, or locations
 - Consider activity intensity based on temperature

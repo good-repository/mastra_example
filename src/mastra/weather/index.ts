@@ -5,6 +5,6 @@
 
 export { weatherAgent } from './agent';
 export { weatherWorkflow } from './workflow';
-export { weatherTool } from './tools/tool';
-export { weatherWorkflowTool } from './tools/workflow-tool';
+export { weatherTool } from './tools/weather-tool';
+export { weatherWorkflowTool } from './tools/forecast-tool';
 export type { WeatherInput, WeatherOutput, Forecast } from './types';

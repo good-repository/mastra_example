@@ -2,18 +2,16 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { fetchWithRetry, API_ENDPOINTS } from '../../shared/lib/api-utils';
 import { getWeatherCondition } from '../../shared/lib/weather-codes';
-import { validateString } from '../../shared/lib/validation';
 import {
   GeocodingResponse,
   CurrentWeatherResponse,
-  type WeatherInput,
 } from '../types';
 
 export const weatherTool = createTool({
   id: 'weather-tool',
   description: 'Get current weather information for a specific location',
   inputSchema: z.object({
-    location: z.string().describe('City or location name'),
+    location: z.string().max(200).describe('City or location name'),
   }),
   outputSchema: z.object({
     temperature: z.number(),
@@ -24,19 +22,8 @@ export const weatherTool = createTool({
     conditions: z.string(),
     location: z.string(),
   }),
-  execute: async (inputData) => {
-    try {
-      if (!inputData || typeof inputData !== 'object') {
-        throw new Error('Invalid input: must be an object');
-      }
-
-      const input = inputData as { location?: unknown };
-      const location = validateString(input.location, 'location');
-
-      return await getWeather(location);
-    } catch (error) {
-      throw error;
-    }
+  execute: async ({ location }: { location: string }) => {
+    return getWeather(location);
   },
 });
 

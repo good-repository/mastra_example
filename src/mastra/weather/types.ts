@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 // Input and output schemas
 export const weatherInputSchema = z.object({
-  city: z.string().describe('Cidade para obter previsão de tempo'),
+  city: z.string().max(200).describe('City name to get the weather forecast for'),
 });
 
 export const forecastSchema = z.object({

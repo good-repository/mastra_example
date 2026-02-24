@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/tool';
-import { weatherWorkflowTool } from './tools/workflow-tool';
+import { weatherTool } from './tools/weather-tool';
+import { weatherWorkflowTool } from './tools/forecast-tool';
 
 export const weatherAgent = new Agent({
   id: 'weather-agent',

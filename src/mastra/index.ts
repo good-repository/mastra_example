@@ -1,36 +1,43 @@
-
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
-import { LibSQLStore } from '@mastra/libsql';
+import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
 import {
   Observability,
   DefaultExporter,
   CloudExporter,
   SensitiveDataFilter,
 } from '@mastra/observability';
-import {
-  cinemaAgent,
-  cinemaWorkflow,
-  cinemaDirectTool,
-  tvTool,
-  cinemaToolWorkflow,
-} from './cinema';
+import { cinemaAgent, cinemaDirectTool, tvTool, cinemaKnowledgeTool } from './cinema';
 import {
   weatherAgent,
   weatherWorkflow,
   weatherTool,
   weatherWorkflowTool,
 } from './weather';
+import { activityPlannerAgent } from './weather/activity-planner-agent';
+import {
+  orchestratorAgent,
+  callWeatherAgent,
+  callCinemaAgent,
+} from './orchestrator';
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow, cinemaWorkflow },
-  agents: { weatherAgent, cinemaAgent },
+  workflows: { weatherWorkflow },
+  agents: { orchestratorAgent, weatherAgent, cinemaAgent, activityPlannerAgent },
   tools: {
+    // Weather tools (scoped to weatherAgent)
     weatherTool,
-    tvTool,
-    cinemaDirectTool,
-    cinemaToolWorkflow,
     weatherWorkflowTool,
+    // Cinema tools (scoped to cinemaAgent)
+    cinemaDirectTool,
+    tvTool,
+    cinemaKnowledgeTool,
+    // Orchestrator tools (scoped to orchestratorAgent)
+    callWeatherAgent,
+    callCinemaAgent,
+  },
+  vectors: {
+    cinemaKnowledge: new LibSQLVector({ id: 'cinema-knowledge', url: 'file:./mastra.db' }),
   },
   storage: new LibSQLStore({
     id: 'mastra-storage',
@@ -39,7 +46,7 @@ export const mastra = new Mastra({
   }),
   logger: new PinoLogger({
     name: 'Mastra',
-    level: 'info',
+    level: (process.env.LOG_LEVEL ?? 'info') as 'debug' | 'info' | 'warn' | 'error',
   }),
   observability: new Observability({
     configs: {

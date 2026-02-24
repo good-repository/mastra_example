@@ -14,54 +14,62 @@ This is a **Mastra** project written in TypeScript. Mastra is a framework for bu
 
 ## Commands
 
-Use these commands to interact with the project.
-
-### Installation
-
 ```bash
-npm install
-```
-
-### Development
-
-Start the Mastra Studio at localhost:4111 by running the `dev` script:
-
-```bash
-npm run dev
-```
-
-### Build
-
-In order to build a production-ready server, run the `build` script:
-
-```bash
-npm run build
+yarn install        # Install dependencies
+yarn dev            # Start Mastra Studio at http://localhost:4111
+yarn build          # Production build → .mastra/output/
+yarn start          # Run production server
 ```
 
 ## Project Structure
 
-Folders organize your agent's resources, like agents, tools, and workflows.
+This project uses **feature-based modularization** — each domain is self-contained under its own folder.
 
-| Folder                 | Description                                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/mastra`           | Entry point for all Mastra-related code and configuration.                                                                               |
-| `src/mastra/agents`    | Define and configure your agents - their behavior, goals, and tools.                                                                     |
-| `src/mastra/workflows` | Define multi-step workflows that orchestrate agents and tools together.                                                                  |
-| `src/mastra/tools`     | Create reusable tools that your agents can call                                                                                          |
-| `src/mastra/mcp`       | (Optional) Implement custom MCP servers to share your tools with external agents                                                         |
-| `src/mastra/scorers`   | (Optional) Define scorers for evaluating agent performance over time                                                                     |
-| `src/mastra/public`    | (Optional) Contents are copied into the `.build/output` directory during the build process, making them available for serving at runtime |
+```
+src/mastra/
+├── orchestrator/          # Central router; delegates to specialist agents
+│   ├── agent.ts
+│   ├── index.ts
+│   └── tools/
+│       ├── call-weather-agent.ts
+│       └── call-cinema-agent.ts
+├── weather/               # Meteorology specialist
+│   ├── agent.ts
+│   ├── activity-planner-agent.ts  # Internal (no tools), used by workflow only
+│   ├── workflow.ts
+│   ├── workflow-executor.ts
+│   ├── types.ts
+│   ├── prompts.ts
+│   ├── index.ts
+│   └── tools/
+│       ├── tool.ts
+│       └── workflow-tool.ts
+├── cinema/                # TV shows specialist
+│   ├── agent.ts
+│   ├── index.ts
+│   └── tools/
+│       ├── direct-tool.ts
+│       └── tv-tool.ts
+├── shared/                # Cross-feature utilities
+│   ├── config.ts          # API endpoints, timeouts, model names
+│   ├── index.ts
+│   ├── types/
+│   │   └── agent-contracts.ts  # Zod schemas for inter-agent I/O
+│   └── lib/
+│       ├── api-utils.ts   # fetchWithRetry, ApiError, formatApiError
+│       └── weather-codes.ts
+├── scorers/               # Evals for agent quality measurement
+│   └── weather-scorer.ts
+└── index.ts               # Mastra instance configuration
+```
 
 ### Top-level files
 
-Top-level files define how your Mastra project is configured, built, and connected to its environment.
-
-| File                  | Description                                                                                                       |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `src/mastra/index.ts` | Central entry point where you configure and initialize Mastra.                                                    |
-| `.env.example`        | Template for environment variables - copy and rename to `.env` to add your secret [model provider](/models) keys. |
-| `package.json`        | Defines project metadata, dependencies, and available npm scripts.                                                |
-| `tsconfig.json`       | Configures TypeScript options such as path aliases, compiler settings, and build output.                          |
+| File                  | Description                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/mastra/index.ts` | Mastra instance — registers all agents, workflows, and tools.                                     |
+| `.env.example`        | Template for environment variables — copy to `.env` and fill in your keys.                        |
+| `package.json`        | Project metadata, dependencies, and scripts (`dev`, `build`, `start`).                           |
 
 ## Mastra Skills
 
