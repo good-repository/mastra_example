@@ -58,7 +58,5 @@ R: Pergunta geral sobre série → cinema-direct-tool
 - Sempre confirme a série encontrada antes de detalhar`,
    model: 'google/gemini-2.5-flash',
    tools: { cinemaDirectTool, tvTool },
-   memory: new Memory({
-      id: 'cinema-agent-memory',
-   }),
+   memory: new Memory(),
 });

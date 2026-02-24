@@ -38,7 +38,5 @@ Quando um usuário pedir informações de tempo:
 ⛅ Condição: [condição]`,
   model: 'google/gemini-2.5-flash-lite',
   tools: { weatherWorkflowTool, weatherTool },
-  memory: new Memory({
-    id: 'weather-agent-memory',
-  }),
+  memory: new Memory(),
 });
