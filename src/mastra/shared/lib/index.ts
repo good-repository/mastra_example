@@ -16,3 +16,4 @@ export {
   getWeatherCondition,
 } from './weather-codes';
 
+export { withCache } from './cache';

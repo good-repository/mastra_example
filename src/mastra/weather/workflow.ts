@@ -1,5 +1,4 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
-import { z } from 'zod';
 import {
   fetchWithRetry,
   API_ENDPOINTS,
@@ -16,9 +15,7 @@ import {
 const fetchWeather = createStep({
   id: 'fetch-weather',
   description: 'Fetches weather forecast for a city',
-  inputSchema: z.object({
-    city: z.string().max(200).describe('City name to get the weather forecast for'),
-  }),
+  inputSchema: weatherInputSchema,
   outputSchema: forecastSchema,
   execute: async ({ inputData }) => {
     if (!inputData) {
@@ -38,7 +35,8 @@ const fetchWeather = createStep({
 
     const { latitude, longitude, name } = geocodingData.results[0];
 
-    const weatherUrl = `${API_ENDPOINTS.OPEN_METEO.WEATHER}?latitude=${latitude}&longitude=${longitude}&current=precipitation,weathercode&timezone=auto&hourly=precipitation_probability,temperature_2m`;
+    const forecastDays = inputData.forecastDays ?? 7;
+    const weatherUrl = `${API_ENDPOINTS.OPEN_METEO.WEATHER}?latitude=${latitude}&longitude=${longitude}&current=precipitation,weathercode&timezone=auto&forecast_days=${forecastDays}&hourly=precipitation_probability,temperature_2m`;
     const data = await fetchWithRetry<WeatherResponse>(weatherUrl);
 
     return {

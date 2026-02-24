@@ -28,18 +28,6 @@ export const API_CONFIG = {
 } as const;
 
 /**
- * Feature flags and behavior configuration
- */
-export const FEATURE_CONFIG = {
-  // Enable structured logging
-  STRUCTURED_LOGGING: false,
-  // Log API requests (verbose)
-  LOG_API_REQUESTS: false,
-  // Log API responses (very verbose)
-  LOG_API_RESPONSES: false,
-} as const;
-
-/**
  * Default models for agents
  */
 export const MODELS = {

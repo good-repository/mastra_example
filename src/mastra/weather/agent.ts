@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { weatherTool } from './tools/weather-tool';
 import { weatherWorkflowTool } from './tools/forecast-tool';
+import { scorers } from '../scorers/weather-scorer';
 
 export const weatherAgent = new Agent({
   id: 'weather-agent',
@@ -39,4 +40,5 @@ Quando um usuário pedir informações de tempo:
   model: 'google/gemini-2.5-flash-lite',
   tools: { weatherWorkflowTool, weatherTool },
   memory: new Memory(),
+  evals: scorers,
 });

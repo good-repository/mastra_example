@@ -10,7 +10,7 @@ export async function executeWeatherWorkflow(
 ): Promise<WeatherOutput> {
   try {
     const result = await (weatherWorkflow.execute as any)({
-      inputData: { city: input.city },
+      inputData: input,
     });
 
     if (!result) {

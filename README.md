@@ -14,6 +14,7 @@ yarn dev               # Mastra Studio at http://localhost:4111
 ```bash
 yarn build  # Production build
 yarn start  # Start production server
+yarn eval   # Run weather agent evaluations
 ```
 
 **Node.js >= 22.13.0 required.**
@@ -81,10 +82,14 @@ src/mastra/
 │   │   └── agent-contracts.ts      # Zod schemas for inter-agent I/O
 │   └── lib/
 │       ├── api-utils.ts            # fetchWithRetry, ApiError
+│       ├── cache.ts                # In-memory TTL cache
 │       └── weather-codes.ts        # WMO weather code mappings
 │
 ├── scorers/
-│   └── weather-scorer.ts           # Evals: tool accuracy, completeness, translation
+│   └── weather-scorer.ts           # Scorers: tool accuracy, completeness, translation
+│
+├── evals/
+│   └── weather-evals.ts            # Eval runner (yarn eval)
 │
 └── index.ts                        # Mastra instance (agents, workflows, tools, vectors)
 ```
@@ -93,27 +98,34 @@ src/mastra/
 
 ### Agent-as-Tool (Orchestrator)
 
-The orchestrator delegates via tools that call `agent.generate()`:
+The orchestrator delegates via tools that call `agent.generate()`. An optional `context` field carries recent conversation turns so specialists can resolve follow-up queries:
 
 ```typescript
 // orchestrator/tools/call-weather-agent.ts
 export const callWeatherAgent = createTool({
   inputSchema: weatherAgentQuerySchema,
-  execute: async ({ query }) => {
-    const result = await weatherAgent.generate(query);
+  execute: async (inputData) => {
+    const prompt = inputData.context
+      ? `Contexto da conversa recente:\n${inputData.context}\n\nPergunta atual: ${inputData.query}`
+      : inputData.query;
+    const result = await weatherAgent.generate(prompt);
     return { response: result.text };
   },
 });
 ```
 
+The orchestrator's instructions tell it to populate `context` when it detects a follow-up question (e.g. "e amanhã?", "e lá?"), summarising the relevant prior turns before delegating.
+
 ### Agent Contracts
 
-Inter-agent communication is typed via shared Zod schemas:
+Inter-agent communication is typed via shared Zod schemas. Every specialist query schema includes an optional `context` field for follow-up support:
 
 ```typescript
 // shared/types/agent-contracts.ts
 export const weatherAgentQuerySchema = z.object({
   query: z.string().max(500).describe('Natural language weather query including the location'),
+  context: z.string().max(1000).optional()
+    .describe('Recent conversation turns to help the specialist resolve follow-up queries'),
 });
 export type WeatherAgentQuery = z.infer<typeof weatherAgentQuerySchema>;
 ```
@@ -137,6 +149,29 @@ export async function executeWeatherWorkflow(input: WeatherInput): Promise<Weath
   return result as WeatherOutput;
 }
 ```
+
+The `WeatherInput` type includes an optional `forecastDays` parameter (1–16, default 7) that flows all the way through to the Open-Meteo API call:
+
+```typescript
+// weather/types.ts
+export const weatherInputSchema = z.object({
+  city: z.string().max(200),
+  forecastDays: z.number().int().min(1).max(16).optional().default(7),
+});
+```
+
+### In-Memory Cache
+
+A lightweight TTL cache (`shared/lib/cache.ts`) wraps API calls to avoid redundant fetches for the same input within a session:
+
+```typescript
+// usage in a tool
+return withCache(`weather:${location.toLowerCase()}`, 30 * 60_000, () => fetchWeather(location));
+```
+
+Applied to:
+- `weather-tool.ts` — 30-minute TTL per location
+- `show-details-tool.ts` — 1-hour TTL per show name
 
 ### Inline Knowledge (Weather)
 
@@ -176,6 +211,37 @@ yarn seed:cinema
 - **Inline constants** — small set of well-defined values (thresholds, rules, enums)
 - **RAG** — large reference docs, API specs, FAQs that would bloat the system prompt
 
+### Evals
+
+Scorers in `scorers/weather-scorer.ts` define automated quality checks for the weather agent.
+
+Three scorers are included:
+
+| Scorer | What it checks |
+|---|---|
+| `toolCallAppropriatenessScorer` | Did the agent call `weatherTool` when it should? |
+| `completenessScorer` | Does the response include all expected fields (temp, wind, condition)? |
+| `translationScorer` | Did the agent translate non-English city names before calling the API? |
+
+**Registered on the agent** — scorers are attached directly to `weatherAgent` via the `evals` property:
+
+```typescript
+// weather/agent.ts
+new Agent({
+  evals: scorers, // runs automatically on every agent execution in eval mode
+})
+```
+
+This means every run in Mastra Studio is scored and the results are stored in the LibSQL database, giving you a quality history over time.
+
+**Manual runner** — to run evals from the terminal against live API calls:
+
+```bash
+yarn eval
+```
+
+The runner (`evals/weather-evals.ts`) exercises the agent with four representative queries and prints a score report. Exit code is non-zero if any check falls below the 0.7 threshold, making it CI-friendly.
+
 ## Adding a New Domain
 
 1. **Create the feature directory** following the weather/cinema structure:
@@ -191,7 +257,11 @@ src/mastra/music/
 2. **Define agent contracts** in `shared/types/agent-contracts.ts`:
 
 ```typescript
-export const musicAgentQuerySchema = z.object({ query: z.string().max(500) });
+export const musicAgentQuerySchema = z.object({
+  query: z.string().max(500),
+  context: z.string().max(1000).optional()
+    .describe('Recent conversation turns to help the specialist resolve follow-up queries'),
+});
 export type MusicAgentQuery = z.infer<typeof musicAgentQuerySchema>;
 ```
 

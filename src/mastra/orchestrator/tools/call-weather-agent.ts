@@ -9,7 +9,7 @@ import {
 
 /**
  * Delegates weather-related queries to the Weather Agent specialist.
- * Used by the Orchestrator Agent for routing.
+ * Forwards conversation context so the specialist can resolve follow-up queries.
  */
 export const callWeatherAgent = createTool({
   id: 'call-weather-agent',
@@ -18,7 +18,10 @@ export const callWeatherAgent = createTool({
   inputSchema: weatherAgentQuerySchema,
   outputSchema: weatherAgentResponseSchema,
   execute: async (inputData: WeatherAgentQuery): Promise<WeatherAgentResponse> => {
-    const result = await weatherAgent.generate(inputData.query);
+    const prompt = inputData.context
+      ? `Contexto da conversa recente:\n${inputData.context}\n\nPergunta atual: ${inputData.query}`
+      : inputData.query;
+    const result = await weatherAgent.generate(prompt);
     return { response: result.text };
   },
 });

@@ -2,10 +2,13 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { fetchWithRetry, API_ENDPOINTS } from '../../shared/lib/api-utils';
 import { getWeatherCondition } from '../../shared/lib/weather-codes';
+import { withCache } from '../../shared/lib/cache';
 import {
   GeocodingResponse,
   CurrentWeatherResponse,
 } from '../types';
+
+const CACHE_TTL_MS = 30 * 60_000; // 30 minutes
 
 export const weatherTool = createTool({
   id: 'weather-tool',
@@ -23,7 +26,7 @@ export const weatherTool = createTool({
     location: z.string(),
   }),
   execute: async ({ location }: { location: string }) => {
-    return getWeather(location);
+    return withCache(`weather:${location.toLowerCase()}`, CACHE_TTL_MS, () => getWeather(location));
   },
 });
 

@@ -4,6 +4,9 @@ import {
   fetchWithRetry,
   API_ENDPOINTS,
 } from '../../shared/lib/api-utils';
+import { withCache } from '../../shared/lib/cache';
+
+const CACHE_TTL_MS = 60 * 60_000; // 1 hour
 
 export const showSearchSchema = z.object({
   showName: z.string().max(200).describe('Name of the TV show to search for'),
@@ -29,38 +32,40 @@ export const cinemaDirectTool = createTool({
   inputSchema: showSearchSchema,
   outputSchema: showDetailSchema,
   execute: async ({ showName }: ShowSearchInput) => {
-    const q = encodeURIComponent(showName);
-    const searchUrl = `${API_ENDPOINTS.TVMAZE.BASE}${API_ENDPOINTS.TVMAZE.SEARCH_SHOWS}?q=${q}`;
+    return withCache(`show:${showName.toLowerCase()}`, CACHE_TTL_MS, async () => {
+      const q = encodeURIComponent(showName);
+      const searchUrl = `${API_ENDPOINTS.TVMAZE.BASE}${API_ENDPOINTS.TVMAZE.SEARCH_SHOWS}?q=${q}`;
 
-    const searchData = await fetchWithRetry<
-      Array<{ show: { id: number; name: string } }>
-    >(searchUrl);
+      const searchData = await fetchWithRetry<
+        Array<{ show: { id: number; name: string } }>
+      >(searchUrl);
 
-    if (!Array.isArray(searchData) || searchData.length === 0) {
-      throw new Error(`Série "${showName}" não encontrada`);
-    }
+      if (!Array.isArray(searchData) || searchData.length === 0) {
+        throw new Error(`Série "${showName}" não encontrada`);
+      }
 
-    const showId = searchData[0].show.id;
-    const detailsUrl = `${API_ENDPOINTS.TVMAZE.BASE}${API_ENDPOINTS.TVMAZE.SHOW_DETAILS(showId)}`;
+      const showId = searchData[0].show.id;
+      const detailsUrl = `${API_ENDPOINTS.TVMAZE.BASE}${API_ENDPOINTS.TVMAZE.SHOW_DETAILS(showId)}`;
 
-    const show = await fetchWithRetry<{
-      id: number;
-      name: string;
-      summary: string | null;
-      genres: string[];
-      status: string;
-      premiered: string | null;
-      officialSite: string | null;
-    }>(detailsUrl);
+      const show = await fetchWithRetry<{
+        id: number;
+        name: string;
+        summary: string | null;
+        genres: string[];
+        status: string;
+        premiered: string | null;
+        officialSite: string | null;
+      }>(detailsUrl);
 
-    return {
-      id: show.id,
-      name: show.name,
-      summary: show.summary,
-      genres: show.genres ?? [],
-      status: show.status ?? 'unknown',
-      premiered: show.premiered,
-      officialSite: show.officialSite,
-    };
+      return {
+        id: show.id,
+        name: show.name,
+        summary: show.summary,
+        genres: show.genres ?? [],
+        status: show.status ?? 'unknown',
+        premiered: show.premiered,
+        officialSite: show.officialSite,
+      };
+    });
   },
 });

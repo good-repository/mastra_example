@@ -9,7 +9,7 @@ import {
 
 /**
  * Delegates TV show / series queries to the Cinema Agent specialist.
- * Used by the Orchestrator Agent for routing.
+ * Forwards conversation context so the specialist can resolve follow-up queries.
  */
 export const callCinemaAgent = createTool({
   id: 'call-cinema-agent',
@@ -18,7 +18,10 @@ export const callCinemaAgent = createTool({
   inputSchema: cinemaAgentQuerySchema,
   outputSchema: cinemaAgentResponseSchema,
   execute: async (inputData: CinemaAgentQuery): Promise<CinemaAgentResponse> => {
-    const result = await cinemaAgent.generate(inputData.query);
+    const prompt = inputData.context
+      ? `Contexto da conversa recente:\n${inputData.context}\n\nPergunta atual: ${inputData.query}`
+      : inputData.query;
+    const result = await cinemaAgent.generate(prompt);
     return { response: result.text };
   },
 });

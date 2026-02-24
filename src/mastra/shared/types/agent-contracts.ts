@@ -10,6 +10,11 @@ import { z } from 'zod';
 
 export const weatherAgentQuerySchema = z.object({
   query: z.string().max(500).describe('Natural language weather query including the location'),
+  context: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe('Recent conversation turns to help the specialist resolve follow-up queries'),
 });
 
 export const weatherAgentResponseSchema = z.object({
@@ -23,6 +28,11 @@ export type WeatherAgentResponse = z.infer<typeof weatherAgentResponseSchema>;
 
 export const cinemaAgentQuerySchema = z.object({
   query: z.string().max(500).describe('Natural language query about a TV show or series'),
+  context: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe('Recent conversation turns to help the specialist resolve follow-up queries'),
 });
 
 export const cinemaAgentResponseSchema = z.object({
