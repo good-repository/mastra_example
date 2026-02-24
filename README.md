@@ -14,7 +14,8 @@ yarn dev               # Mastra Studio at http://localhost:4111
 ```bash
 yarn build  # Production build
 yarn start  # Start production server
-yarn eval   # Run weather agent evaluations
+yarn eval:weather  # Run weather agent evaluations
+yarn eval:cinema   # Run cinema agent evaluations
 ```
 
 **Node.js >= 22.13.0 required.**
@@ -86,10 +87,12 @@ src/mastra/
 │       └── weather-codes.ts        # WMO weather code mappings
 │
 ├── scorers/
-│   └── weather-scorer.ts           # Scorers: tool accuracy, completeness, translation
+│   ├── weather-scorer.ts           # Scorers: tool accuracy, completeness, translation
+│   └── cinema-scorer.ts            # Scorers: tool selection, response format, HTML stripping
 │
 ├── evals/
-│   └── weather-evals.ts            # Eval runner (yarn eval)
+│   ├── weather-evals.ts            # Eval runner (yarn eval:weather)
+│   └── cinema-evals.ts             # Eval runner (yarn eval:cinema)
 │
 └── index.ts                        # Mastra instance (agents, workflows, tools, vectors)
 ```
@@ -215,7 +218,7 @@ yarn seed:cinema
 
 Scorers in `scorers/weather-scorer.ts` define automated quality checks for the weather agent.
 
-Three scorers are included:
+**Weather** — three scorers in `scorers/weather-scorer.ts`:
 
 | Scorer | What it checks |
 |---|---|
@@ -223,12 +226,20 @@ Three scorers are included:
 | `completenessScorer` | Does the response include all expected fields (temp, wind, condition)? |
 | `translationScorer` | Did the agent translate non-English city names before calling the API? |
 
-**Registered on the agent** — scorers are attached directly to `weatherAgent` via the `evals` property:
+**Cinema** — three scorers in `scorers/cinema-scorer.ts`:
+
+| Scorer | What it checks |
+|---|---|
+| `toolSelectionScorer` | Did the agent prefer `cinema-direct-tool` for basic show info queries? |
+| `responseFormatScorer` | Does the response include all 5 required fields (Série, Status, Gênero, Sinopse, Disponível em)? |
+| `htmlStrippingScorer` | Were HTML tags from TVMaze summaries stripped from the response? |
+
+**Registered on the agent** — scorers are attached directly to `weatherAgent` / `cinemaAgent` via the `scorers` property:
 
 ```typescript
 // weather/agent.ts
 new Agent({
-  evals: scorers, // runs automatically on every agent execution in eval mode
+  scorers, // runs automatically on every agent execution in eval mode
 })
 ```
 
@@ -237,10 +248,11 @@ This means every run in Mastra Studio is scored and the results are stored in th
 **Manual runner** — to run evals from the terminal against live API calls:
 
 ```bash
-yarn eval
+yarn eval:weather
+yarn eval:cinema
 ```
 
-The runner (`evals/weather-evals.ts`) exercises the agent with four representative queries and prints a score report. Exit code is non-zero if any check falls below the 0.7 threshold, making it CI-friendly.
+Each runner exercises its agent with four representative queries and prints a score report. Exit code is non-zero if any check falls below the 0.7 threshold, making it CI-friendly.
 
 ## Adding a New Domain
 

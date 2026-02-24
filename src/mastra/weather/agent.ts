@@ -1,12 +1,12 @@
-import { Agent } from '@mastra/core/agent';
-import { Memory } from '@mastra/memory';
-import { weatherTool } from './tools/weather-tool';
-import { weatherWorkflowTool } from './tools/forecast-tool';
-import { scorers } from '../scorers/weather-scorer';
+import { Agent } from "@mastra/core/agent";
+import { Memory } from "@mastra/memory";
+import { weatherTool } from "./tools/weather-tool";
+import { weatherWorkflowTool } from "./tools/forecast-tool";
+import { scorers } from "../scorers/weather-scorer";
 
 export const weatherAgent = new Agent({
-  id: 'weather-agent',
-  name: 'Weather Agent',
+  id: "weather-agent",
+  name: "Weather Agent",
   instructions: `Você é um assistente especialista em meteorologia e informações de tempo.
 
 ## FERRAMENTAS
@@ -37,8 +37,8 @@ Quando um usuário pedir informações de tempo:
 💨 Vento: X km/h
 💧 Umidade: X%
 ⛅ Condição: [condição]`,
-  model: 'google/gemini-2.5-flash-lite',
+  model: "google/gemini-2.5-flash-lite",
   tools: { weatherWorkflowTool, weatherTool },
   memory: new Memory(),
-  evals: scorers,
+  scorers,
 });

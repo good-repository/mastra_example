@@ -87,7 +87,7 @@ export const translationScorer = createScorer({
   });
 
 export const scorers = {
-  toolCallAppropriatenessScorer,
-  completenessScorer,
-  translationScorer,
+  toolCallAppropriatenessScorer: { scorer: toolCallAppropriatenessScorer },
+  completenessScorer: { scorer: completenessScorer },
+  translationScorer: { scorer: translationScorer },
 };

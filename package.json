@@ -8,7 +8,8 @@
     "build": "mastra build",
     "start": "mastra start",
     "seed:cinema": "tsx src/mastra/cinema/knowledge/seed.ts",
-    "eval": "tsx src/mastra/evals/weather-evals.ts"
+    "eval:weather": "tsx src/mastra/evals/weather-evals.ts",
+    "eval:cinema": "tsx src/mastra/evals/cinema-evals.ts"
   },
   "keywords": [],
   "author": "",

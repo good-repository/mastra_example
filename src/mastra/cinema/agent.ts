@@ -3,6 +3,7 @@ import { Memory } from '@mastra/memory';
 import { tvTool } from './tools/tvmaze-tool';
 import { cinemaDirectTool } from './tools/show-details-tool';
 import { cinemaKnowledgeTool } from './tools/knowledge-tool';
+import { scorers } from '../scorers/cinema-scorer';
 
 export const cinemaAgent = new Agent({
    id: 'cinema-agent',
@@ -29,4 +30,5 @@ Seja amigável e confirme a série encontrada antes de detalhar. Se a API estive
    model: 'google/gemini-2.5-flash',
    tools: { cinemaDirectTool, tvTool, cinemaKnowledgeTool },
    memory: new Memory(),
+   scorers,
 });

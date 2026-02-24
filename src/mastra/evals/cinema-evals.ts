@@ -1,54 +1,54 @@
 /**
- * Weather Agent Eval Runner
+ * Cinema Agent Eval Runner
  *
- * Exercises the weather agent with representative queries and runs all scorers,
+ * Exercises the cinema agent with representative queries and runs all scorers,
  * printing a human-readable score report.
  *
  * Run with:
- *   yarn eval:weather
+ *   yarn eval:cinema
  *
  * What each scorer checks:
- *   toolCallAppropriatenessScorer — did the agent call weatherTool when it should?
- *   completenessScorer            — does the response contain all expected fields?
- *   translationScorer             — did the agent translate non-English city names?
+ *   toolSelectionScorer    — did the agent prefer cinema-direct-tool for basic show info?
+ *   responseFormatScorer   — does the response include all 5 required markdown fields?
+ *   htmlStrippingScorer    — were HTML tags from TVMaze summaries stripped from the response?
  */
 
-import { weatherAgent } from '../weather/agent';
+import { cinemaAgent } from '../cinema/agent';
 import {
-  toolCallAppropriatenessScorer,
-  completenessScorer,
-  translationScorer,
-} from '../scorers/weather-scorer';
+  toolSelectionScorer,
+  responseFormatScorer,
+  htmlStrippingScorer,
+} from '../scorers/cinema-scorer';
 
 const TEST_CASES = [
   {
-    name: 'English city — current weather',
-    query: 'What is the current weather in London?',
+    name: 'Popular EN show — general info',
+    query: 'Me conta sobre Breaking Bad',
   },
   {
-    name: 'Portuguese query with non-English city',
-    query: 'Como está o tempo em Tóquio agora?',
+    name: 'Non-English show — English search term required',
+    query: 'Quais informações você tem sobre Dark?',
   },
   {
-    name: 'Brazilian city — activity planning',
-    query: 'O que posso fazer em São Paulo com o tempo de hoje?',
+    name: 'Show with HTML-heavy summary',
+    query: 'Me fala sobre Stranger Things',
   },
   {
-    name: 'City with accented name',
-    query: 'Como está o clima em Munique?',
+    name: 'English query — general show info',
+    query: 'What can you tell me about Game of Thrones?',
   },
 ] as const;
 
 const SCORERS = {
-  toolCallAppropriatenessScorer,
-  completenessScorer,
-  translationScorer,
+  toolSelectionScorer,
+  responseFormatScorer,
+  htmlStrippingScorer,
 } as const;
 
 const PASS_THRESHOLD = 0.7;
 
 async function runEvals() {
-  console.log('\n🧪 Weather Agent — Eval Runner\n');
+  console.log('\n🎬 Cinema Agent — Eval Runner\n');
   console.log(`Pass threshold: ${PASS_THRESHOLD}\n`);
   console.log('─'.repeat(60));
 
@@ -59,9 +59,9 @@ async function runEvals() {
     console.log(`\n📋 ${testCase.name}`);
     console.log(`   Query: "${testCase.query}"`);
 
-    let result: Awaited<ReturnType<typeof weatherAgent.generate>>;
+    let result: Awaited<ReturnType<typeof cinemaAgent.generate>>;
     try {
-      result = await weatherAgent.generate(testCase.query);
+      result = await cinemaAgent.generate(testCase.query);
     } catch (err) {
       console.log(`   ❌ Agent error: ${err instanceof Error ? err.message : String(err)}`);
       continue;
@@ -91,7 +91,7 @@ async function runEvals() {
         console.log(`   ${icon} ${name}: ${scoreStr}${reason ? ` — ${reason}` : ''}`);
       } catch (err) {
         console.log(
-          `   ⚠️  ${name}: scorer error — ${err instanceof Error ? err.message : String(err)}`
+          `   ⚠️  ${name}: scorer error — ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
