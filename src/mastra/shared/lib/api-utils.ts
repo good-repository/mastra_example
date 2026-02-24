@@ -3,25 +3,17 @@
  * Provides consistent error handling, retry logic, and validation
  */
 
-// API Endpoints
-export const API_ENDPOINTS = {
-  TVMAZE: {
-    BASE: 'https://api.tvmaze.com',
-    SEARCH_SHOWS: '/search/shows',
-    SHOW_DETAILS: (id: number) => `/shows/${id}`,
-  },
-  OPEN_METEO: {
-    GEOCODING: 'https://geocoding-api.open-meteo.com/v1/search',
-    WEATHER: 'https://api.open-meteo.com/v1/forecast',
-  },
-} as const;
+import { API_ENDPOINTS, API_CONFIG } from '../config';
 
-// Configuration
-export const API_CONFIG = {
-  MAX_RETRIES: 3,
-  RETRY_DELAY_MS: 1000,
-  TIMEOUT_MS: 10000,
-} as const;
+// Ensure we use native fetch from Node.js globalThis
+// This prevents polyfill issues
+const fetchFn = globalThis.fetch;
+
+if (!fetchFn) {
+  throw new Error('Fetch is not available in this Node.js environment. Ensure Node.js >= 18 is used.');
+}
+
+export { API_ENDPOINTS, API_CONFIG };
 
 /**
  * Retry wrapper for API calls with exponential backoff
@@ -32,15 +24,32 @@ export async function fetchWithRetry<T>(
   retries: number = API_CONFIG.MAX_RETRIES
 ): Promise<T> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT_MS);
+    let response: Response;
 
-    const response = await fetch(url, {
-      ...(options || {}),
-      signal: controller.signal,
-    });
+    try {
+      response = await fetchFn(url, {
+        ...options,
+        method: options?.method || 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Node.js)',
+          ...options?.headers,
+        },
+      } as RequestInit);
+    } catch (fetchError) {
+      // Handle fetch errors (network issues, etc.)
+      if (retries > 0) {
+        const delay = API_CONFIG.RETRY_DELAY_MS * (API_CONFIG.MAX_RETRIES - retries + 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return fetchWithRetry<T>(url, options, retries - 1);
+      }
 
-    clearTimeout(timeoutId);
+      const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      throw new ApiError(
+        `Network error: ${errorMsg}`,
+        0,
+        url
+      );
+    }
 
     // Validate status code
     if (!response.ok) {
@@ -54,15 +63,12 @@ export async function fetchWithRetry<T>(
     const data = await response.json();
     return data as T;
   } catch (error) {
-    // Don't retry on abort (timeout) or validation errors
-    if (
-      error instanceof ApiError ||
-      (error instanceof Error && error.name === 'AbortError')
-    ) {
+    // Don't retry on validation errors
+    if (error instanceof ApiError) {
       throw error;
     }
 
-    // Retry on network errors
+    // Retry on other errors
     if (retries > 0) {
       const delay = API_CONFIG.RETRY_DELAY_MS * (API_CONFIG.MAX_RETRIES - retries + 1);
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -89,20 +95,6 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
-}
-
-/**
- * Validate API response structure
- */
-export function validateResponse<T>(
-  data: unknown,
-  validator: (data: unknown) => data is T,
-  errorMessage: string
-): T {
-  if (!validator(data)) {
-    throw new Error(errorMessage);
-  }
-  return data;
 }
 
 /**

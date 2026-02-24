@@ -45,34 +45,67 @@ npm start
 
 ## 📂 Project Structure
 
+The project follows a **feature-based modular architecture** for clarity and scalability:
+
 ```
 src/mastra/
-├── agents/              # AI agents with instructions and tools
-│   ├── cinema-agent.ts  # TV show specialist agent
-│   └── weather-agent.ts # Weather information agent
+├── cinema/                      # Cinema domain (TV shows)
+│   ├── agent.ts                 # Cinema specialist agent
+│   ├── workflow.ts              # Show search & details workflow
+│   ├── workflow-executor.ts      # Type-safe workflow wrapper
+│   └── tools/
+│       ├── workflow-tool.ts      # Exposes workflow to agents
+│       └── tv-tool.ts            # Direct TVMaze API access
 │
-├── workflows/           # Multi-step orchestrations
-│   ├── cinema-workflow.ts                  # Series search workflow
-│   ├── cinema-workflow-executor.ts         # Type-safe wrapper
-│   ├── weather-workflow.ts                 # Weather + activities workflow
-│   ├── weather-workflow-executor.ts        # Type-safe wrapper
-│   ├── weather-types.ts                    # Type definitions
-│   └── weather-prompts.ts                  # LLM prompts
+├── weather/                     # Weather domain
+│   ├── agent.ts                 # Weather specialist agent
+│   ├── workflow.ts              # Forecast + activity planning
+│   ├── workflow-executor.ts      # Type-safe workflow wrapper
+│   ├── types.ts                 # Zod schemas & type exports
+│   ├── prompts.ts               # LLM activity planning prompt
+│   └── tools/
+│       ├── workflow-tool.ts      # Exposes workflow to agents
+│       └── tool.ts               # Current weather for any location
 │
-├── tools/               # Reusable tools for agents
-│   ├── cinema-workflow-tool.ts # Exposes cinema workflow
-│   ├── tv-tool.ts              # Direct TVMaze API access
-│   └── weather-tool.ts         # Weather forecasting tool
+├── shared/                      # Shared utilities
+│   └── lib/
+│       ├── api-utils.ts         # Retry logic, error handling, endpoints
+│       └── weather-codes.ts     # WMO weather code mappings (34 codes)
 │
-├── lib/                 # Shared utilities
-│   ├── api-utils.ts     # Retry logic, error handling, endpoints
-│   └── weather-codes.ts # WMO weather code mappings
+├── scorers/                     # Optional evaluators
+│   └── weather-scorer.ts        # (not currently used)
 │
-├── scorers/             # Evaluation functions (optional)
-│   └── weather-scorer.ts
+├── public/                      # Static assets (copied to build)
 │
-└── index.ts             # Mastra initialization
+└── index.ts                     # Mastra initialization & exports
 ```
+
+### Architecture Pattern
+
+Each feature (cinema, weather) follows this consistent structure:
+
+```
+feature/
+├── agent.ts              # Agent with instructions and tools
+├── workflow.ts           # Multi-step workflow definition
+├── workflow-executor.ts  # Type-safe wrapper (isolates complex Mastra API)
+├── types.ts             # (Weather only) Zod schemas + z.infer types
+├── prompts.ts           # (Weather only) Extracted LLM prompts
+└── tools/
+    ├── workflow-tool.ts  # Exposes workflow as tool
+    └── *.ts             # Additional tools (tv-tool, tool.ts)
+```
+
+This pattern makes it **easy to add new features** - just follow the same structure!
+
+### Why This Architecture?
+
+1. **Modular** - Each feature is self-contained and independent
+2. **Scalable** - Add new features (music, sports, news) without touching existing code
+3. **Clear** - Understand the whole feature by reading its directory
+4. **Maintainable** - Shared code is centralized, feature code is localized
+5. **Testable** - Each module can be tested independently
+6. **Consistent** - All features follow the same pattern
 
 ## 🎬 Cinema Agent
 
@@ -133,6 +166,58 @@ Centralized API endpoints:
 API_ENDPOINTS.TVMAZE.SEARCH_SHOWS
 API_ENDPOINTS.OPEN_METEO.WEATHER
 ```
+
+## 🆕 Adding New Features
+
+To add a new feature (e.g., Music, Sports, News), follow this pattern:
+
+### 1. Create Feature Directory
+
+```
+src/mastra/{feature}/
+├── index.ts              # Central exports
+├── agent.ts              # Feature agent
+├── workflow.ts           # Multi-step workflow
+├── workflow-executor.ts  # Type-safe wrapper
+├── types.ts             # Zod schemas & exports (if needed)
+├── prompts.ts           # LLM prompts (if needed)
+└── tools/
+    ├── primary-tool.ts   # Main feature tool
+    └── workflow-tool.ts  # Exposes workflow as tool
+```
+
+### 2. Create `index.ts` Exports
+
+```typescript
+// music/index.ts
+export { musicAgent } from './agent';
+export { musicWorkflow } from './workflow';
+export { spotifyTool } from './tools/spotify-tool';
+export { musicWorkflowTool } from './tools/workflow-tool';
+export type { MusicSearchInput, MusicResult } from './workflow-executor';
+```
+
+### 3. Update Main Exports
+
+```typescript
+// src/mastra/index.ts
+import { musicAgent, musicWorkflow, spotifyTool, musicWorkflowTool } from './music';
+
+export const mastra = new Mastra({
+  workflows: { ..., musicWorkflow },
+  agents: { ..., musicAgent },
+  tools: { ..., spotifyTool, musicWorkflowTool },
+  // ...
+});
+```
+
+### Key Patterns
+
+✅ **Self-contained** - Everything a feature needs is in its folder  
+✅ **Clean imports** - Use `index.ts` for centralized exports  
+✅ **Type-safe** - Export types via workflow-executor  
+✅ **Prompt management** - Extract complex prompts to `prompts.ts`  
+✅ **Error handling** - Use shared `formatApiError()` for consistency  
 
 ## 📊 API Integration
 

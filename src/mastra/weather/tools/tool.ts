@@ -1,27 +1,13 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { fetchWithRetry, formatApiError, API_ENDPOINTS } from '../lib/api-utils';
-import { getWeatherCondition } from '../lib/weather-codes';
-
-interface GeocodingResponse {
-  results: {
-    latitude: number;
-    longitude: number;
-    name: string;
-  }[];
-}
-
-interface WeatherResponse {
-  current: {
-    time: string;
-    temperature_2m: number;
-    apparent_temperature: number;
-    relative_humidity_2m: number;
-    wind_speed_10m: number;
-    wind_gusts_10m: number;
-    weather_code: number;
-  };
-}
+import { fetchWithRetry, API_ENDPOINTS } from '../../shared/lib/api-utils';
+import { getWeatherCondition } from '../../shared/lib/weather-codes';
+import { validateString } from '../../shared/lib/validation';
+import {
+  GeocodingResponse,
+  CurrentWeatherResponse,
+  type WeatherInput,
+} from '../types';
 
 export const weatherTool = createTool({
   id: 'weather-tool',
@@ -40,9 +26,16 @@ export const weatherTool = createTool({
   }),
   execute: async (inputData) => {
     try {
-      return await getWeather(inputData.location);
+      if (!inputData || typeof inputData !== 'object') {
+        throw new Error('Invalid input: must be an object');
+      }
+
+      const input = inputData as { location?: unknown };
+      const location = validateString(input.location, 'location');
+
+      return await getWeather(location);
     } catch (error) {
-      throw new Error(formatApiError(error));
+      throw error;
     }
   },
 });
@@ -62,7 +55,7 @@ const getWeather = async (location: string) => {
 
   // Fetch weather
   const weatherUrl = `${API_ENDPOINTS.OPEN_METEO.WEATHER}?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code`;
-  const data = await fetchWithRetry<WeatherResponse>(weatherUrl);
+  const data = await fetchWithRetry<CurrentWeatherResponse>(weatherUrl);
 
   return {
     temperature: data.current.temperature_2m,

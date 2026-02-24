@@ -8,19 +8,30 @@ import {
   CloudExporter,
   SensitiveDataFilter,
 } from '@mastra/observability';
-import { weatherWorkflow } from './workflows/weather-workflow';
-import { cinemaWorkflow } from './workflows/cinema-workflow';
-import { weatherAgent } from './agents/weather-agent';
-import { cinemaAgent } from './agents/cinema-agent';
-import { weatherTool } from './tools/weather-tool';
-import { tvTool } from './tools/tv-tool';
-import { cinemaWorkflowTool } from './tools/cinema-workflow-tool';
-import { weatherWorkflowTool } from './tools/weather-workflow-tool';
+import {
+  cinemaAgent,
+  cinemaWorkflow,
+  cinemaDirectTool,
+  tvTool,
+  cinemaToolWorkflow,
+} from './cinema';
+import {
+  weatherAgent,
+  weatherWorkflow,
+  weatherTool,
+  weatherWorkflowTool,
+} from './weather';
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow, cinemaWorkflow },
   agents: { weatherAgent, cinemaAgent },
-  tools: { weatherTool, tvTool, cinemaWorkflowTool, weatherWorkflowTool },
+  tools: {
+    weatherTool,
+    tvTool,
+    cinemaDirectTool,
+    cinemaToolWorkflow,
+    weatherWorkflowTool,
+  },
   storage: new LibSQLStore({
     id: 'mastra-storage',
     // stores observability, scores, ... into persistent file storage

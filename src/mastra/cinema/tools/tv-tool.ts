@@ -2,9 +2,9 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import {
   fetchWithRetry,
-  formatApiError,
   API_ENDPOINTS,
-} from '../lib/api-utils';
+} from '../../shared/lib/api-utils';
+import { validateString, validateObject } from '../../shared/lib/validation';
 
 export const tvTool = createTool({
   id: 'tv-tool',
@@ -28,13 +28,16 @@ Use the 'endpoint' parameter to specify which endpoint to call.`,
   outputSchema: z.any(),
   execute: async (inputData) => {
     try {
-      const url = `${API_ENDPOINTS.TVMAZE.BASE}${inputData.endpoint}`;
-      const data = await fetchWithRetry<unknown>(url);
-      return data;
+      validateObject(inputData, 'tv-tool input');
+
+      const input = inputData as { endpoint?: unknown };
+      const endpoint = validateString(input.endpoint, 'endpoint');
+
+      const url = `${API_ENDPOINTS.TVMAZE.BASE}${endpoint}`;
+      return await fetchWithRetry<unknown>(url);
     } catch (error) {
-      return {
-        error: formatApiError(error),
-      };
+      throw error;
     }
   },
 });
+
